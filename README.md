@@ -1,5 +1,3 @@
-Instructions
-
 Challenge #1: Customer View (Minimum Requirement)
 
 Create a MySQL Database called bamazon.
