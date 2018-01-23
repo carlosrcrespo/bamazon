@@ -1,24 +1,19 @@
 {
-  "name": "bamazon",
+  "name": "bamazon-master",
   "version": "1.0.0",
-  "description": "Instructions",
+  "description": "Bamazon Store",
   "main": "bamazonCustomer.js",
+  "dependencies": {
+    "accounting": "^0.4.1",
+    "cli-table": "^0.3.1",
+    "inquirer": "^4.0.0",
+    "mysql": "^2.15.0",
+    "prompt": "^1.0.0"
+  },
+  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/carlosrcrespo/bamazon.git"
-  },
   "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/carlosrcrespo/bamazon/issues"
-  },
-  "homepage": "https://github.com/carlosrcrespo/bamazon#readme",
-  "dependencies": {
-    "cli-table": "^0.3.1",
-    "inquirer": "^4.0.0",
-    "mysql": "^2.15.0"
-  }
+  "license": "ISC"
 }

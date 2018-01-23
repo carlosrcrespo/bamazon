@@ -1,121 +1,98 @@
-// Then create a Node application called bamazonCustomer.js. 
-
-// Running this application will first display all of the items available for sale. 
-var mysql = require ("mysql");
-var tables = require ("cli-table");
-var inquirer = require ("inquirer");
-var idOfPurchase = [];
+var mysql = require('mysql');
+var inquirer = require('inquirer');
+var accounting = require('accounting');
+var chalk = require('chalk');
+var Bamazon = require('./bamazonTools');
 
 var connection = mysql.createConnection({
-	host : "localhost",
-	port: 8889,
-	user : "root",
-	password : "root",
-	database : "bamazon"
-
+  host: "localhost",
+  port: 3306,
+  user: "root", 
+  password: "root",
+  database: "bamazon"
 });
 
-showProductsTable();
+connection.connect(function(err) {
+  if (err) throw err;
+  start();
+});
 
-// Include the ids, names, and prices of products for sale.
-function showProductsTable(){
-	
-	connection.connect();
-	connection.query("SELECT * FROM product", function(error, results){
-		
-				if(error) throw error;
+var max, col = ['Item ID', 'Product Name', 'Price'];
 
-				//console.log(results);
+var start = function() {
+  // Select all rows of columns desired and print
+  var query = Bamazon.createQuery(col);
+  connection.query(query, function(err, res) {
+    handleQuery(res);
+  });
+};
 
-				//Creating a temporary array to store the object as an array
-				var table = new tables({
-					
-					head:['Item ID', 'Product Name', 'Stock Quantity', 'Item Price']
-				
-				});
+var handleQuery = function(res) {
+  Bamazon.printData(res,col);
+  max = res[res.length - 1]['Item ID'];
+  chooseItem(max);
+};
 
-				for (i = 0; i < results.length; i++){
-					var tempArray = [];
+var chooseItem = function(max) {
+  inquirer.prompt([{
+    name: "id",
+    type: "input",
+    message: "What is the item ID of the product you would like to buy?",
+    validate: function(value) {
+      if (value>=0 && value<=max && value%1 === 0 && value.indexOf(' ')<0 && value.indexOf('.')<0) {
+        return true;
+      } else {
+        return 'Please type a whole number between 1 and ' + max + ' without a period or extra spaces';
+      }
+    }
+  } , {
+    name: "quantity",
+    type: "input",
+    message: "How many would you like to buy?",
+    validate: Bamazon.validateQuantity
+  }]).then(function(answer) {
+    checkQuantity(answer);
+  });
+};
 
-					for(var key in results[i]){
-						
-						tempArray.push(results[i][key]);
+var checkQuantity = function(answer) {
+  var query = 'SELECT StockQuantity, Price, DepartmentName FROM Products WHERE ItemID = ?';
+  var params = answer.id;
+  connection.query(query, params, function(err, res) {
+    if (res[0].StockQuantity < answer.quantity) {
+      console.log(chalk.bold.red('Insufficient quantity.  Please select a quantity equal to or below ' + res[0].StockQuantity) + '.');
+      chooseItem(max);
+    } else {
+      var total = answer.quantity * res[0].Price;
+      var newQuantity = res[0].StockQuantity-answer.quantity;
+      updateQuantity(answer.id,total,newQuantity);
+      queryTotal(res[0].DepartmentName,total);
+    }
+  });
+};
 
-					}
+var updateQuantity = function(id,total,newQuantity) {
+  var query = 'UPDATE Products SET StockQuantity = ? WHERE ItemID = ?';
+  var params = [newQuantity,id];
+  connection.query(query, params, function(err, res) {
+    console.log(chalk.bold.blue('\nTotal cost: ') + chalk.bold.yellow(accounting.formatMoney(total)));
+    console.log(chalk.bold.blue('Thank you come again!'));
+  });
+};
 
-					table.push(tempArray);
+var queryTotal = function(deptName,total) {
+  var query = 'SELECT ProductSales FROM Departments WHERE DepartmentName = ?';
+  var params = deptName;
+  connection.query(query, params, function(err, res) {
+    updateTotal(res,deptName,total);
+  });
+};
 
-
-				}
-				
-				console.log(table.toString());
-
-		
-		});
-		
-
-
-		// connection.end(function(err){
-
-		// // The app should then prompt users with two messages. 
-		// askQuestions();
-
-
-		// });
-
-		askQuestions();
-		
-	}
-
-function askQuestions(){
-
-			inquirer.prompt([{
-
-					type: 'input',
-					name: 'q1',
-					message: 'What would you like to purchase?'
-
-				}]).then(function(answers){
-					console.log(answers.q1);
-
-					var answer1 = answers.q1;
-
-					inquirer.prompt([{
-						type: 'input',
-						name: 'q2',
-						message: 'How many would you like?'	
-
-					}]).then(function(answers){
-						console.log(answers.q2);
-
-				//	connection.connect();
-
-					connection.query("SELECT * FROM product WHERE item_id="+answer1,function(error,results){
-
-						console.log(results);
-						
-					});
-					
-
-					})
-
-				});
-
-}
-
-
-//Ask the question when the table to string runs
-
-
-
-// Once the customer has placed the order, your application should check if your store has 
-// enough of the product to meet the customer's request. 
-
-// If not, the app should log a phrase like Insufficient quantity!, 
-// and then prevent the order from going through. However, 
-
-// if your store does have enough of the product, you should fulfill the customer's order. 
-
-// This means updating the SQL database to reflect the remaining quantity. 
-
-// Once the update goes through, show the customer the total cost of their purchase.
+var updateTotal = function(res,deptName,total) {
+  var prodSales = res[0].ProductSales + total;
+  var query = 'UPDATE Departments SET ProductSales = ? WHERE DepartmentName = ?';
+  var params = [prodSales,deptName];
+  connection.query(query, params, function(err, res) {
+    connection.end();
+  });
+};
